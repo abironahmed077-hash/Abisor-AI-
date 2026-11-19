@@ -5,12 +5,20 @@ plugins {
 android {
     namespace = "com.abisor.ai"
     compileSdk = 34
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("abisor.keystore")
+            storePassword = "abisor123"
+            keyAlias = "abisor"
+            keyPassword = "abisor123"
+        }
+    }
     defaultConfig {
         applicationId = "com.abisor.ai"
         minSdk = 21
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+        versionName = "1." + (System.getenv("GITHUB_RUN_NUMBER") ?: "0")
     }
     buildTypes {
         release { isMinifyEnabled = false }
