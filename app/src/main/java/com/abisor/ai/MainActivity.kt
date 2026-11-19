@@ -2,9 +2,12 @@ package com.abisor.ai
 
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -23,9 +26,55 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 
 class MainActivity : AppCompatActivity() {
+    private val latestReleaseApi = "https://api.github.com/repos/abironahmed077-hash/Abisor-AI-/releases/latest"
+    private val apkUrl = "https://github.com/abironahmed077-hash/Abisor-AI-/releases/latest/download/app-debug.apk"
+
+    @Suppress("DEPRECATION")
+    private fun currentVersionCode(): Long {
+        val info = packageManager.getPackageInfo(packageName, 0)
+        return if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else info.versionCode.toLong()
+    }
+
+    private fun checkForUpdate() {
+        Thread {
+            try {
+                val conn = URL(latestReleaseApi).openConnection() as HttpURLConnection
+                conn.connectTimeout = 8000
+                conn.readTimeout = 8000
+                conn.setRequestProperty("Accept", "application/vnd.github+json")
+                if (conn.responseCode == 200) {
+                    val body = conn.inputStream.bufferedReader().use { it.readText() }
+                    val tag = JSONObject(body).getString("tag_name")
+                    val latest = tag.removePrefix("v").toLongOrNull()
+                    if (latest != null && latest > currentVersionCode()) {
+                        runOnUiThread { showUpdateDialog() }
+                    }
+                }
+                conn.disconnect()
+            } catch (e: Exception) {
+            }
+        }.start()
+    }
+
+    private fun showUpdateDialog() {
+        if (isFinishing || isDestroyed) return
+        AlertDialog.Builder(this)
+            .setTitle("নতুন সংস্করণ এসেছে")
+            .setMessage("abisor ai-এর নতুন সংস্করণ পাওয়া যাচ্ছে। এখন আপডেট করবেন?")
+            .setPositiveButton("আপডেট করুন") { _, _ ->
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl)))
+            }
+            .setNegativeButton("পরে", null)
+            .show()
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -131,5 +180,7 @@ class MainActivity : AppCompatActivity() {
                 root.removeView(splash)
             }.start()
         }, 3500)
+
+        Handler(Looper.getMainLooper()).postDelayed({ checkForUpdate() }, 4200)
     }
 }
