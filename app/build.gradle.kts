@@ -7,6 +7,15 @@ android {
     namespace = "com.abisor.ai"
     compileSdk = 34
 
+    signingConfigs {
+        create("release-key") {
+            storeFile = file("abisor.keystore")
+            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+            keyAlias = "abisor"
+            keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+        }
+    }
+
     defaultConfig {
         applicationId = "com.abisor.ai"
         minSdk = 21
@@ -16,7 +25,13 @@ android {
     }
 
     buildTypes {
-        release { isMinifyEnabled = false }
+        debug {
+            signingConfig = signingConfigs.getByName("release-key")
+        }
+        release {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release-key")
+        }
     }
 
     compileOptions {
