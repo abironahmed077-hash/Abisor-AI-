@@ -3,6 +3,8 @@ name: Build APK
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'version.json'
   workflow_dispatch:
 
 permissions:
@@ -48,3 +50,18 @@ jobs:
           tag_name: v${{ github.run_number }}
           name: Abisor AI v${{ github.run_number }}
           files: app/build/outputs/apk/debug/abisor-ai.apk
+
+      - name: Update version.json
+        run: |
+          cat > version.json <<EOF
+          {
+            "versionCode": ${{ github.run_number }},
+            "versionName": "1.${{ github.run_number }}",
+            "apkUrl": "https://github.com/abironahmed077-hash/Abisor-AI-/releases/download/v${{ github.run_number }}/abisor-ai.apk"
+          }
+          EOF
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add version.json
+          git commit -m "Update version.json to ${{ github.run_number }}" || echo "No change"
+          git push
