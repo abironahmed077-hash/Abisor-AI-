@@ -132,7 +132,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun buildSplash(): FrameLayout {
         val bg = GradientDrawable(
-            GradientDrawable.TOP_BOTTOM,
+            GradientDrawable.Orientation.TOP_BOTTOM,
             intArrayOf(Color.parseColor("#f7fbf9"), Color.parseColor("#e2f4ea"))
         )
 
