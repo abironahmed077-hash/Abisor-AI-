@@ -26,8 +26,10 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialException
+import androidx.lifecycle.lifecycleScope
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -119,9 +121,9 @@ class MainActivity : AppCompatActivity() {
             .addCredentialOption(googleIdOption)
             .build()
 
-        thread {
+        lifecycleScope.launch {
             try {
-                val result = credentialManager.getCredential(this, request)
+                val result = credentialManager.getCredential(this@MainActivity, request)
                 val credential = result.credential
                 if (credential is CustomCredential &&
                     credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
@@ -130,22 +132,16 @@ class MainActivity : AppCompatActivity() {
                     val idToken = googleCred.idToken
                     val email = googleCred.id
                     val name = googleCred.displayName ?: ""
-                    runOnUiThread {
-                        val js = "window.onGoogleSignIn && window.onGoogleSignIn(" +
-                            JSONObject.quote(idToken) + "," +
-                            JSONObject.quote(email) + "," +
-                            JSONObject.quote(name) + ")"
-                        webView.evaluateJavascript(js, null)
-                    }
+                    val js = "window.onGoogleSignIn && window.onGoogleSignIn(" +
+                        JSONObject.quote(idToken) + "," +
+                        JSONObject.quote(email) + "," +
+                        JSONObject.quote(name) + ")"
+                    webView.evaluateJavascript(js, null)
                 }
             } catch (e: GetCredentialException) {
-                runOnUiThread {
-                    Toast.makeText(this, "লগইন বাতিল হয়েছে", Toast.LENGTH_SHORT).show()
-                }
+                Toast.makeText(this@MainActivity, "লগইন বাতিল হয়েছে", Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
-                runOnUiThread {
-                    Toast.makeText(this, "লগইনে সমস্যা হয়েছে", Toast.LENGTH_SHORT).show()
-                }
+                Toast.makeText(this@MainActivity, "লগইনে সমস্যা হয়েছে", Toast.LENGTH_SHORT).show()
             }
         }
     }
