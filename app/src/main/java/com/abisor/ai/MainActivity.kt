@@ -7,17 +7,26 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
+import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -29,6 +38,7 @@ import androidx.credentials.exceptions.GetCredentialException
 import androidx.lifecycle.lifecycleScope
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -38,9 +48,9 @@ import kotlin.concurrent.thread
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
+    private lateinit var splashView: FrameLayout
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
 
-    // Web client ID (Android কোড এটি দিয়ে token চায়)
     private val webClientId =
         "123690801007-ougfqovf1n291ftik1ie4p4m146949pr.apps.googleusercontent.com"
 
@@ -58,7 +68,6 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.RequestPermission()
     ) { _ -> }
 
-    // JavaScript থেকে ডাকা হবে: window.AbisorAuth.signIn()
     inner class AuthBridge {
         @JavascriptInterface
         fun signIn() {
@@ -71,7 +80,12 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         webView = WebView(this)
-        setContentView(webView)
+        splashView = buildSplash()
+
+        val root = FrameLayout(this)
+        root.addView(webView, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        root.addView(splashView, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        setContentView(root)
 
         webView.settings.apply {
             javaScriptEnabled = true
@@ -105,7 +119,55 @@ class MainActivity : AppCompatActivity() {
 
         webView.loadUrl("file:///android_asset/index.html")
 
+        // ২.৫ সেকেন্ড পর splash সরবে
+        lifecycleScope.launch {
+            delay(2500)
+            splashView.animate().alpha(0f).setDuration(400).withEndAction {
+                splashView.visibility = View.GONE
+            }.start()
+        }
+
         checkForUpdate()
+    }
+
+    private fun buildSplash(): FrameLayout {
+        val bg = GradientDrawable(
+            GradientDrawable.TOP_BOTTOM,
+            intArrayOf(Color.parseColor("#f7fbf9"), Color.parseColor("#e2f4ea"))
+        )
+
+        val container = FrameLayout(this).apply { background = bg }
+
+        val column = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+        }
+
+        val icon = ImageView(this).apply {
+            setImageResource(R.drawable.ic_launcher)
+            layoutParams = LinearLayout.LayoutParams(260, 260)
+        }
+
+        val name = TextView(this).apply {
+            text = "Abisor AI"
+            textSize = 26f
+            setTextColor(Color.parseColor("#14211b"))
+            gravity = Gravity.CENTER
+            setPadding(0, 24, 0, 0)
+        }
+
+        column.addView(icon)
+        column.addView(name)
+
+        container.addView(
+            column,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER
+            )
+        )
+        return container
     }
 
     private fun startGoogleSignIn() {
