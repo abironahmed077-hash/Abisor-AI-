@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
+import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -21,6 +22,12 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialException
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -30,6 +37,10 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
+
+    // Web client ID (Android কোড এটি দিয়ে token চায়)
+    private val webClientId =
+        "123690801007-ougfqovf1n291ftik1ie4p4m146949pr.apps.googleusercontent.com"
 
     private val versionUrl =
         "https://raw.githubusercontent.com/abironahmed077-hash/Abisor-AI-/main/version.json"
@@ -45,6 +56,14 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.RequestPermission()
     ) { _ -> }
 
+    // JavaScript থেকে ডাকা হবে: window.AbisorAuth.signIn()
+    inner class AuthBridge {
+        @JavascriptInterface
+        fun signIn() {
+            runOnUiThread { startGoogleSignIn() }
+        }
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,6 +77,8 @@ class MainActivity : AppCompatActivity() {
             allowFileAccess = true
             mediaPlaybackRequiresUserGesture = false
         }
+
+        webView.addJavascriptInterface(AuthBridge(), "AbisorAuth")
 
         webView.webViewClient = WebViewClient()
         webView.webChromeClient = object : WebChromeClient() {
@@ -83,6 +104,50 @@ class MainActivity : AppCompatActivity() {
         webView.loadUrl("file:///android_asset/index.html")
 
         checkForUpdate()
+    }
+
+    private fun startGoogleSignIn() {
+        val credentialManager = CredentialManager.create(this)
+
+        val googleIdOption = GetGoogleIdOption.Builder()
+            .setFilterByAuthorizedAccounts(false)
+            .setServerClientId(webClientId)
+            .setAutoSelectEnabled(false)
+            .build()
+
+        val request = GetCredentialRequest.Builder()
+            .addCredentialOption(googleIdOption)
+            .build()
+
+        thread {
+            try {
+                val result = credentialManager.getCredential(this, request)
+                val credential = result.credential
+                if (credential is CustomCredential &&
+                    credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+                ) {
+                    val googleCred = GoogleIdTokenCredential.createFrom(credential.data)
+                    val idToken = googleCred.idToken
+                    val email = googleCred.id
+                    val name = googleCred.displayName ?: ""
+                    runOnUiThread {
+                        val js = "window.onGoogleSignIn && window.onGoogleSignIn(" +
+                            JSONObject.quote(idToken) + "," +
+                            JSONObject.quote(email) + "," +
+                            JSONObject.quote(name) + ")"
+                        webView.evaluateJavascript(js, null)
+                    }
+                }
+            } catch (e: GetCredentialException) {
+                runOnUiThread {
+                    Toast.makeText(this, "লগইন বাতিল হয়েছে", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this, "লগইনে সমস্যা হয়েছে", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
     private fun checkForUpdate() {
